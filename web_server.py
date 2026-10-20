@@ -44,7 +44,7 @@ def create_web_app(manager=None, reviewer=None, origin="http://127.0.0.1:8770", 
         raise ValueError("현재 웹 테스트 버전은 http://127.0.0.1 주소만 허용합니다.")
     if password and len(password) < 12:
         raise ValueError("접속 비밀번호는 12자 이상으로 설정하세요.")
-    reviewer = reviewer or OpenAIReviewer(os.environ.get("OPENAI_API_KEY", ""), os.environ.get("OPENAI_MODEL", "gpt-5.4"))
+    reviewer = reviewer or OpenAIReviewer(os.environ.get("OPENAI_API_KEY", ""), os.environ.get("OPENAI_MODEL", review.DEFAULT_AI_MODEL))
     manager = manager or desktop.ReviewManager(ROOT/".local/web", ai_reviewer=reviewer,
                                                ai_status=reviewer.status, ai_progress=True)
     csrf = secrets.token_urlsafe(32)

@@ -22,6 +22,7 @@ import criteria
 
 ROOT = Path(__file__).resolve().parent
 ENGINE_VERSION = "2026-10-20.6"
+DEFAULT_AI_MODEL = "gpt-6.1-sol"
 SHEET_ID = "1u2T4EVRJtpXADEXg3vssXQIzc14quztf8-NgqIdcPrw"
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit"
 TABS = {"2_세트목록": 2, "3_어휘": 3, "5_문항": 5, "6_지문원문": 6}
@@ -543,7 +544,8 @@ def codex_status():
     try:
         p = subprocess.run([binary, "login", "status"], capture_output=True, text=True, timeout=12)
         if p.returncode == 0:
-            return {"ready": True, "message": "Codex AI 연결 준비됨 · 현재 로그인 사용"}
+            return {"ready": True, "model": DEFAULT_AI_MODEL,
+                    "message": f"Codex AI 연결 준비됨 · {DEFAULT_AI_MODEL} · 현재 로그인 사용"}
     except (OSError, subprocess.SubprocessError):
         pass
     return {"ready": False, "message": "Codex 로그인이 필요합니다. 터미널에서 codex login을 실행하세요."}
@@ -727,6 +729,7 @@ def ai_review_pass(snapshot, item, cancel, timeout=360, direction="forward", pri
     with tempfile.TemporaryDirectory(prefix="readai-review-") as tmp:
         output = Path(tmp) / "result.json"
         cmd = [binary, "--ask-for-approval", "never", "exec", "--ignore-user-config", "--ephemeral",
+               "--model", DEFAULT_AI_MODEL,
                "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never",
                "--output-schema", str(ROOT / ("ai-recheck-schema.json" if direction == "reverse" else "ai-schema.json")), "--output-last-message", str(output),
                "-c", 'web_search="disabled"']

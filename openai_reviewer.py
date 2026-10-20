@@ -9,7 +9,7 @@ import review
 
 
 class OpenAIReviewer:
-    def __init__(self, api_key="", model="gpt-5.4", client_factory=None):
+    def __init__(self, api_key="", model=review.DEFAULT_AI_MODEL, client_factory=None):
         self._api_key = api_key
         self.model = model
         self.client_factory = client_factory or AsyncOpenAI
