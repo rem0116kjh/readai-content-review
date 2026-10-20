@@ -1,0 +1,197 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "summary",
+    "coverage",
+    "issues",
+    "difficulty",
+    "section_results"
+  ],
+  "properties": {
+    "summary": {
+      "type": "string"
+    },
+    "coverage": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "2",
+          "3",
+          "4",
+          "6"
+        ]
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "category",
+          "severity",
+          "title",
+          "sheet",
+          "row",
+          "field",
+          "quote",
+          "reason",
+          "suggestion",
+          "evidence_cells",
+          "check"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "2",
+              "3",
+              "4",
+              "6"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "needs_source"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "sheet": {
+            "type": "string",
+            "enum": [
+              "2_세트목록",
+              "3_어휘",
+              "5_문항",
+              "6_지문원문"
+            ]
+          },
+          "row": {
+            "type": "integer"
+          },
+          "field": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "suggestion": {
+            "type": "string"
+          },
+          "evidence_cells": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sheet",
+                "row",
+                "field",
+                "quote"
+              ],
+              "properties": {
+                "sheet": {
+                  "type": "string",
+                  "enum": [
+                    "2_세트목록",
+                    "3_어휘",
+                    "5_문항",
+                    "6_지문원문"
+                  ]
+                },
+                "row": {
+                  "type": "integer"
+                },
+                "field": {
+                  "type": "string"
+                },
+                "quote": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "check": {
+            "type": "string",
+            "enum": [
+              "오탈자",
+              "문법·문장",
+              "겹말",
+              "학년·난이도",
+              "어휘",
+              "학습 목표",
+              "문항·정답",
+              "연결·표시",
+              "공통 내용"
+            ]
+          }
+        }
+      }
+    },
+    "difficulty": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "적합",
+        "다소 어려움",
+        "다소 쉬움",
+        null
+      ]
+    },
+    "section_results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "2_세트목록",
+        "3_어휘",
+        "5_문항",
+        "6_지문원문"
+      ],
+      "properties": {
+        "2_세트목록": {
+          "type": "string",
+          "enum": [
+            "맞음",
+            "수정 필요",
+            "확인 필요"
+          ]
+        },
+        "3_어휘": {
+          "type": "string",
+          "enum": [
+            "맞음",
+            "수정 필요",
+            "확인 필요"
+          ]
+        },
+        "5_문항": {
+          "type": "string",
+          "enum": [
+            "맞음",
+            "수정 필요",
+            "확인 필요"
+          ]
+        },
+        "6_지문원문": {
+          "type": "string",
+          "enum": [
+            "맞음",
+            "수정 필요",
+            "확인 필요"
+          ]
+        }
+      }
+    }
+  }
+}
