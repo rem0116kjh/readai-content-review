@@ -208,6 +208,44 @@ class WebTests(unittest.TestCase):
         self.assertIn("OpenAI API 사용량", page)
         self.assertEqual(self.client.get("/.env").status_code, 404)
 
+    def test_catalog_reads_the_entered_sheet_and_rejects_other_sites(self):
+        sid = "connected-copy-12345678901234567890"
+        url = f"https://docs.google.com/spreadsheets/d/{sid}/edit"
+        with patch.object(review, "download_tab", return_value=fixture()["sheets"]["2_세트목록"]) as download:
+            result = self.client.get("/api/catalog", params={"sheet_url": url})
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()["source_url"], url)
+            download.assert_called_once_with("2_세트목록", sid)
+            download.reset_mock()
+            self.assertEqual(self.client.get("/api/catalog", params={"sheet_url": "https://example.com/private"}).status_code, 502)
+            download.assert_not_called()
+
+    def test_review_keeps_entered_sheet_link_in_saved_report(self):
+        sid = "connected-copy-12345678901234567890"
+        url = f"https://docs.google.com/spreadsheets/d/{sid}/edit"
+        received = []
+        def download(progress, cancel, sheet_id):
+            received.append(sheet_id)
+            snapshot = fixture()
+            snapshot["spreadsheetId"] = sheet_id
+            return snapshot
+        self.manager.downloader = download
+        self.assertEqual(self.post("/api/review", {"sheet_url": url, "ai": False}).status_code, 202)
+        report = finish(self.manager)
+        self.assertEqual(received, [sid])
+        self.assertEqual(report["source_url"], url)
+        self.assertEqual(report["status"], "complete")
+        saved = self.client.get(f"/api/report/{report['id']}.json").json()
+        self.assertEqual(saved["options"]["sheet_url"], url)
+
+    def test_private_sheet_error_is_distinct_from_local_login(self):
+        failure = review.urllib.error.HTTPError(review.SHEET_URL, 401, "private upstream body", None, None)
+        with patch.object(review, "download_tab", side_effect=failure):
+            response = self.client.get("/api/catalog")
+            self.assertEqual(response.status_code, 502)
+            self.assertIn("Google 시트 읽기 권한이 없습니다(401)", response.json()["error"])
+            self.assertNotIn("private upstream body", response.text)
+
     def test_public_origin_is_explicitly_not_a_supported_deployment(self):
         for origin in ("https://public.example", "http://0.0.0.0:8770", "http://127.0.0.1:8770/path"):
             with self.assertRaises(ValueError):

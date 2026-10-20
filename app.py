@@ -292,7 +292,7 @@ class ReviewManager:
                 self._changed()
             self.update(status="cancelled", message="검토를 중단했습니다. 확인한 결과는 보존했습니다.", finished_at=review.now())
         except Exception as exc:
-            error = str(exc) if isinstance(exc, ValueError) else "시트를 읽거나 검토하지 못했습니다. 네트워크와 링크 보기 권한을 확인하세요."
+            error = str(exc) if isinstance(exc, ValueError) else review.sheet_read_error(exc)
             self.update(status="failed", message="검토를 완료하지 못했습니다", error=error, finished_at=review.now())
         finally:
             try:
@@ -376,11 +376,11 @@ class Handler(BaseHTTPRequestHandler):
                     snapshot = read_saved_source(params["saved_source"][0])
                 else:
                     sid = review.parse_sheet_id(params.get("sheet_url", [review.SHEET_ID])[0])
-                    snapshot = {"sheets": {"2_세트목록": review.download_tab("2_세트목록", sid)}}
+                    snapshot = {"spreadsheetId": sid, "sheets": {"2_세트목록": review.download_tab("2_세트목록", sid)}}
                 return self.json({"sets": review.catalog(snapshot), "fetched_at": snapshot.get("fetched_at") or review.now(),
-                                  "source_mode": snapshot.get("source_mode", "live")})
-            except Exception:
-                return self.json({"error": "최신 시트 목록을 읽지 못했습니다. 네트워크와 링크 보기 권한을 확인하세요."}, 502)
+                                  "source_mode": snapshot.get("source_mode", "live"), "source_url": review.source_url(snapshot)})
+            except Exception as exc:
+                return self.json({"error": review.sheet_read_error(exc)}, 502)
         if path == "/api/status":
             params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             revision = params.get("after_revision", [""])[0]

@@ -15,10 +15,11 @@
     <form id="review-form">
       <fieldset id="settings">
         <legend class="section-label">검토할 콘텐츠</legend>
+        <label class="field-label source-label" for="source-url">검토할 구글 시트 링크</label>
+        <input id="source-url" type="url" value="https://docs.google.com/spreadsheets/d/1u2T4EVRJtpXADEXg3vssXQIzc14quztf8-NgqIdcPrw/edit" placeholder="https://docs.google.com/spreadsheets/d/..." aria-label="검토할 Google 시트 URL" spellcheck="false" autocomplete="off">
+        <button id="connect-source" class="secondary sheet-connect" type="button">시트 연결</button>
         <label class="field-label" for="source-select">시트 데이터</label>
         <select id="source-select"><option value="">실시간 Google 시트</option></select>
-        <label class="field-label source-label" for="source-url">시트 URL</label>
-        <input id="source-url" type="url" value="https://docs.google.com/spreadsheets/d/1u2T4EVRJtpXADEXg3vssXQIzc14quztf8-NgqIdcPrw/edit" aria-label="검토할 Google 시트 URL">
         <p id="source-note" class="help">링크로 볼 수 있는 시트를 매번 새로 읽습니다.</p>
         <label class="field-label">대상 학년</label>
         <div class="grade-grid">

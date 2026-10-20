@@ -15,6 +15,7 @@ import tempfile
 import threading
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -69,6 +70,13 @@ def parse_sheet_id(value):
 
 def source_url(snapshot):
     return f"https://docs.google.com/spreadsheets/d/{snapshot.get('spreadsheetId', SHEET_ID)}/edit"
+
+
+def sheet_read_error(error):
+    if isinstance(error, urllib.error.HTTPError) and error.code in (401, 403):
+        return (f"Google 시트 읽기 권한이 없습니다({error.code}). "
+                "현재 서버가 링크로 읽을 수 있는 시트인지 확인하세요. 저장한 자료는 계속 선택할 수 있습니다.")
+    return "시트를 읽지 못했습니다. 네트워크, 링크 보기 권한과 시트 형식을 확인하세요."
 
 
 def table_hash(table):

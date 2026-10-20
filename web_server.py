@@ -20,22 +20,11 @@ import uvicorn
 import app as desktop
 import criteria
 from openai_reviewer import OpenAIReviewer
+from setup_env import ensure_env, load_env
 import review
 
 ROOT = Path(__file__).resolve().parent
 COOKIE = "readai_session"
-
-
-def load_env(path):
-    """Small dotenv reader; never logs values or runs shell expressions."""
-    if path.is_file():
-        for line in path.read_text().splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            key, sep, value = line.partition("=")
-            if sep and re.fullmatch(r"[A-Z][A-Z0-9_]*", key):
-                os.environ.setdefault(key, value.strip().strip("'\""))
 
 
 def create_web_app(manager=None, reviewer=None, origin="http://127.0.0.1:8770", password=""):
@@ -44,7 +33,8 @@ def create_web_app(manager=None, reviewer=None, origin="http://127.0.0.1:8770", 
         raise ValueError("현재 웹 테스트 버전은 http://127.0.0.1 주소만 허용합니다.")
     if password and len(password) < 12:
         raise ValueError("접속 비밀번호는 12자 이상으로 설정하세요.")
-    reviewer = reviewer or OpenAIReviewer(os.environ.get("OPENAI_API_KEY", ""), os.environ.get("OPENAI_MODEL", review.DEFAULT_AI_MODEL))
+    reviewer = reviewer or OpenAIReviewer(os.environ.get("OPENAI_API_KEY", "").strip(),
+                                          os.environ.get("OPENAI_MODEL", "").strip() or review.DEFAULT_AI_MODEL)
     manager = manager or desktop.ReviewManager(ROOT/".local/web", ai_reviewer=reviewer,
                                                ai_status=reviewer.status, ai_progress=True)
     csrf = secrets.token_urlsafe(32)
@@ -191,12 +181,16 @@ def create_web_app(manager=None, reviewer=None, origin="http://127.0.0.1:8770", 
     @api.get("/api/catalog")
     def catalog(saved_source: str = "", sheet_url: str = review.SHEET_URL):
         try:
-            snapshot = desktop.read_saved_source(saved_source) if saved_source else {
-                "sheets": {"2_세트목록": review.download_tab("2_세트목록", review.parse_sheet_id(sheet_url))}}
+            if saved_source:
+                snapshot = desktop.read_saved_source(saved_source)
+            else:
+                sheet_id = review.parse_sheet_id(sheet_url)
+                snapshot = {"spreadsheetId": sheet_id,
+                            "sheets": {"2_세트목록": review.download_tab("2_세트목록", sheet_id)}}
             return {"sets": review.catalog(snapshot), "fetched_at": snapshot.get("fetched_at") or review.now(),
-                    "source_mode": snapshot.get("source_mode", "live")}
-        except Exception:
-            return response_error("시트 목록을 읽지 못했습니다. 링크 보기 권한과 시트 형식을 확인하세요.", 502)
+                    "source_mode": snapshot.get("source_mode", "live"), "source_url": review.source_url(snapshot)}
+        except Exception as exc:
+            return response_error(review.sheet_read_error(exc), 502)
 
     @api.get("/api/status")
     def status(after_id: str = "", after_revision: str = ""):
@@ -241,7 +235,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="리드AI OpenAI API 로컬 웹 테스트")
     parser.add_argument("--port", type=int, default=8770)
     args = parser.parse_args()
-    load_env(ROOT/".env")
+    env_path, created = ensure_env(ROOT)
+    if created:
+        print(".env 파일을 만들었습니다. API 키를 입력한 뒤 서버를 다시 실행하세요.", flush=True)
+    load_env(env_path)
     application = create_web_app(origin=f"http://127.0.0.1:{args.port}",
                                  password=os.environ.get("READAI_ACCESS_PASSWORD", ""))
     uvicorn.run(application, host="127.0.0.1", port=args.port, workers=1,

@@ -90,9 +90,10 @@ with tempfile.TemporaryDirectory() as folder:
     });
     await page.locator('#source-select').selectOption('');
     await page.locator('#source-url').fill('https://docs.google.com/spreadsheets/d/slow-sheet-12345678901234567890/edit');
-    await page.locator('#source-url').dispatchEvent('change');
+    assert.equal(await page.locator('#start').isDisabled(),true);
+    await page.locator('#connect-source').click();
     await page.locator('#source-url').fill('https://docs.google.com/spreadsheets/d/fast-sheet-12345678901234567890/edit');
-    await page.locator('#source-url').dispatchEvent('change');
+    await page.locator('#connect-source').click();
     await page.waitForFunction(() => document.querySelector('#set-select option[value="3-current"]'));
     await page.waitForTimeout(900);
     assert.equal(await page.locator('#set-select option[value="3-stale"]').count(),0);

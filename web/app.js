@@ -38,10 +38,37 @@ function selectedGrades() {
 }
 function sourceNote() {
   const saved = state.savedSources.find(s => s.id === $('source-select').value);
-  $('source-url').hidden = Boolean(saved);
-  document.querySelector('.source-label').hidden = Boolean(saved);
   $('source-note').classList.toggle('snapshot', Boolean(saved));
-  $('source-note').textContent = saved ? `저장 데이터 · ${new Date(saved.fetched_at).toLocaleString('ko-KR', {timeZone: 'Asia/Seoul'})}. 현재 시트와 다를 수 있습니다.` : '링크로 볼 수 있는 시트를 매번 새로 읽습니다.';
+  $('source-note').textContent = saved ? `저장 데이터 · ${new Date(saved.fetched_at).toLocaleString('ko-KR', {timeZone: 'Asia/Seoul'})}. 현재 시트와 다를 수 있습니다. 링크를 넣고 ‘시트 연결’을 누르면 최신 시트로 전환합니다.` : '링크로 볼 수 있는 시트를 매번 새로 읽습니다.';
+}
+function invalidateCatalog() {
+  state.catalogRequest++;
+  state.catalogController?.abort();
+  state.catalog = [];
+  state.catalogReady = false;
+  state.catalogLoading = false;
+  state.sourceDirty = true;
+  state.desiredSet = null;
+  $('set-select').value = '';
+  populateSets();
+  $('catalog-info').textContent = '링크 입력 후 시트 연결을 눌러 주세요.';
+  $('refresh').disabled = state.busy;
+  setBusy(state.busy);
+}
+async function connectSource() {
+  if (state.busy) return;
+  const url = $('source-url').value.trim();
+  if (!/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,100}(?:\/[^\s]*)?$/.test(url)) {
+    invalidateCatalog();
+    return error('Google Sheets의 전체 링크를 입력해 주세요.');
+  }
+  $('source-url').value = url;
+  $('source-select').value = '';
+  state.desiredSet = null;
+  $('set-select').value = '';
+  sourceNote();
+  error('');
+  await refreshCatalog();
 }
 function populateSets() {
   const prev = state.desiredSet || $('set-select').value;
@@ -55,6 +82,7 @@ function populateSets() {
 }
 async function refreshCatalog() {
   const request = ++state.catalogRequest;
+  state.sourceDirty = false;
   state.desiredSet ||= $('set-select').value || null;
   state.catalogController?.abort();
   state.catalogController = new AbortController();
@@ -72,6 +100,7 @@ async function refreshCatalog() {
     if (request !== state.catalogRequest) return;
     state.catalog = data.sets;
     state.catalogReady = true;
+    if (source && data.source_url) $('source-url').value = data.source_url;
     populateSets();
     $('catalog-info').title = `${data.source_mode === 'snapshot' ? '저장 시각' : '목록 확인'}: ${data.fetched_at}`;
   } catch (e) {
@@ -219,7 +248,7 @@ function renderReport(report) {
     const options = report.options;
     document.querySelectorAll('input[name="grade"]').forEach(el => { el.checked = options.grades.includes(Number(el.value)); });
     $('source-select').value = options.saved_source || '';
-    $('source-url').value = options.sheet_url || report.source_url;
+    $('source-url').value = options.saved_source ? report.source_url : (options.sheet_url || report.source_url);
     $('include-sample').checked = Boolean(options.include_sample);
     const canRestoreAI = state.aiReady || ['running', 'cancelling'].includes(report.status);
     document.querySelector(`input[name="mode"][value="${options.ai && canRestoreAI ? 'ai' : 'rules'}"]`).checked = true;
@@ -320,14 +349,18 @@ $('cancel').addEventListener('click', async () => {
   $('cancel').disabled = true;
   try { await api('/api/cancel', {id: state.report?.id}); await poll(); } catch (e) { error(e.message); await poll(); $('cancel').disabled = false; }
 });
-$('refresh').addEventListener('click', () => { error(''); refreshCatalog(); });
+$('refresh').addEventListener('click', () => { error(''); state.sourceDirty ? connectSource() : refreshCatalog(); });
+$('connect-source').addEventListener('click', connectSource);
 $('source-select').addEventListener('change', () => {
   state.desiredSet = null;
   $('set-select').value = '';
   sourceNote();
   error(''); refreshCatalog();
 });
-$('source-url').addEventListener('change', () => { state.desiredSet = null; $('set-select').value = ''; error(''); refreshCatalog(); });
+$('source-url').addEventListener('input', () => { error(''); invalidateCatalog(); });
+$('source-url').addEventListener('keydown', event => {
+  if (event.key === 'Enter') { event.preventDefault(); connectSource(); }
+});
 document.querySelectorAll('input[name="grade"], #include-sample').forEach(el => el.addEventListener('change', populateSets));
 document.querySelectorAll('[data-filter]').forEach(el => el.addEventListener('click', () => {
   state.filter = el.dataset.filter;
