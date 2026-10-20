@@ -56,9 +56,9 @@ function invalidateCatalog() {
   setBusy(state.busy);
 }
 async function connectSource() {
-  if (state.busy) return;
+  if (state.busy || !state.ready || state.initializing) return;
   const url = $('source-url').value.trim();
-  if (!/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,100}(?:\/[^\s]*)?$/.test(url)) {
+  if (!/^https:\/\/docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,100}(?:\/(?:edit|view|preview|copy|export))?\/?(?:[?#][^\s]*)?$/.test(url)) {
     invalidateCatalog();
     return error('Google Sheets의 전체 링크를 입력해 주세요.');
   }
@@ -117,8 +117,8 @@ async function refreshCatalog() {
 }
 function setBusy(busy) {
   state.busy = busy;
-  $('settings').disabled = busy;
-  $('start').disabled = busy || !state.ready || !state.catalogReady || state.catalogLoading || state.connectionLost;
+  $('settings').disabled = busy || !state.ready || state.initializing;
+  $('start').disabled = busy || !state.ready || state.initializing || !state.catalogReady || state.catalogLoading || state.connectionLost;
   $('start').firstElementChild.textContent = busy ? '검토 진행 중' : '오류 검토 시작';
   $('cancel').hidden = !busy;
   $('cancel').disabled = false;
@@ -397,7 +397,7 @@ async function init() {
     if (dataNow.job) renderReport(dataNow.job);
     await refreshCatalog();
   } catch (e) { error(e.message); }
-  finally { state.initializing = false; schedulePoll(state.busy ? 1000 : 5000); }
+  finally { state.initializing = false; setBusy(state.busy); schedulePoll(state.busy ? 1000 : 5000); }
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) schedulePoll(0); });
 $('logout')?.addEventListener('click', async () => {

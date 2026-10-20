@@ -18,11 +18,12 @@ import urllib.parse
 import urllib.error
 import urllib.request
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from zoneinfo import ZoneInfo
 import criteria
 
 ROOT = Path(__file__).resolve().parent
-ENGINE_VERSION = "2026-10-20.6"
+ENGINE_VERSION = "2026-10-20.7"
 DEFAULT_AI_MODEL = "gpt-6.1-sol"
 SHEET_ID = "1u2T4EVRJtpXADEXg3vssXQIzc14quztf8-NgqIdcPrw"
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit"
@@ -62,7 +63,7 @@ def parse_sheet_id(value):
     value = str(value).strip()
     if re.fullmatch(r"[A-Za-z0-9_-]{20,100}", value):
         return value
-    match = re.fullmatch(r"https://docs\.google\.com/spreadsheets/d/([A-Za-z0-9_-]{20,100})(?:/[^\s]*)?", value)
+    match = re.fullmatch(r"https://docs\.google\.com/spreadsheets/d/([A-Za-z0-9_-]{20,100})(?:/(?:edit|view|preview|copy|export))?/?(?:[?#][^\s]*)?", value)
     if not match:
         raise ValueError("올바른 Google Sheets 주소를 입력하세요.")
     return match[1]
@@ -125,14 +126,29 @@ def download_tab(title, sheet_id=SHEET_ID):
 
 
 def download_snapshot(progress=lambda _: None, cancel=None, sheet_id=SHEET_ID):
-    result = {"spreadsheetId": parse_sheet_id(sheet_id), "fetched_at": now(), "source_mode": "live", "sheets": {}}
-    for title in TABS:
-        if cancel and cancel.is_set():
-            raise Cancelled()
-        progress(f"{title} 최신 데이터 읽는 중")
-        result["sheets"][title] = download_tab(title, sheet_id)
-    result["fetched_at"] = now()
-    return result
+    sheet_id = parse_sheet_id(sheet_id)
+    if cancel and cancel.is_set():
+        raise Cancelled()
+    tables = {}
+    # Each tab is independent. Assemble only a complete snapshot in canonical order.
+    # Failed/cancelled reads never fall back to previously saved input.
+    with ThreadPoolExecutor(max_workers=len(TABS), thread_name_prefix="sheet-read") as pool:
+        pending = {pool.submit(download_tab, title, sheet_id): title for title in TABS}
+        try:
+            progress(f"최신 시트 {len(TABS)}개 읽는 중")
+            for future in as_completed(pending):
+                if cancel and cancel.is_set():
+                    raise Cancelled()
+                title = pending[future]
+                tables[title] = future.result()
+                progress(f"최신 시트 읽기 {len(tables)}/{len(TABS)} · {title}")
+        finally:
+            for future in pending:
+                future.cancel()
+    if cancel and cancel.is_set():
+        raise Cancelled()
+    return {"spreadsheetId": sheet_id, "fetched_at": now(), "source_mode": "live",
+            "sheets": {title: tables[title] for title in TABS}}
 
 
 def catalog(snapshot):
